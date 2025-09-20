@@ -1,0 +1,60 @@
+name: Ubuntu SSH via Tailscale
+
+on:
+  workflow_dispatch:
+  repository_dispatch:
+    types: [restart_ssh]
+
+jobs:
+  ubuntu-ssh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+
+    steps:
+    - name: Update & Install Desktop & SSH
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y xfce4 xfce4-goodies xrdp dbus-x11 x11-xserver-utils openssh-server
+        echo "xfce4-session" > ~/.xsession
+        sudo systemctl enable xrdp
+        sudo systemctl restart xrdp
+        sudo systemctl enable ssh
+        sudo systemctl restart ssh
+
+    - name: Create User
+      run: |
+        sudo useradd -m -s /bin/bash yanzz
+        echo "yanzz:${{ secrets.RDP_PASSWORD }}" | sudo chpasswd
+        sudo usermod -aG sudo yanzz
+        echo "RDP_CREDS=User: yanzz | Password: ${{ secrets.RDP_PASSWORD }}" >> $GITHUB_ENV
+
+    - name: Install Tailscale
+      run: |
+        curl -fsSL https://tailscale.com/install.sh | sh
+        sudo tailscale up --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} --hostname=ubuntu-github --reset
+
+    - name: Get Tailscale IP
+      run: |
+        TS_IP=$(tailscale ip -4)
+        echo "TAILSCALE_IP=$TS_IP" >> $GITHUB_ENV
+
+    - name: Notify via Telegram
+      env:
+        TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      run: |
+        MESSAGE="🔔 Ubuntu SSH Ready%0A🖥️ User: yanzz%0A🔐 Password: ${{ secrets.RDP_PASSWORD }}%0A🌐 Tailscale IP: ${{ env.TAILSCALE_IP }}%0A🕒 Session ID: ${{ env.GITHUB_RUN_ID }}"
+        curl -s "https://api.telegram.org/bot$TELEGRAM_TOKEN/sendMessage?chat_id=$TELEGRAM_CHAT_ID&text=$MESSAGE"
+
+    - name: Keep Alive
+      run: |
+        echo "SSH Ready via Tailscale IP: $TAILSCALE_IP"
+        sleep 18000  # 5 jam
+
+    - name: Auto-Restart Workflow
+      run: |
+        curl -X POST \
+          -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+          -H "Accept: application/vnd.github.v3+json" \
+          https://api.github.com/repos/${{ github.repository }}/dispatches \
+          -d '{"event_type":"restart_ssh"}'
