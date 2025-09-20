@@ -14,7 +14,7 @@ jobs:
     - name: Update & Install Desktop & SSH
       run: |
         sudo apt-get update
-        sudo apt-get install -y xfce4 xfce4-goodies xrdp dbus-x11 x11-xserver-utils openssh-server python3
+        sudo apt-get install -y xfce4 xfce4-goodies xrdp dbus-x11 x11-xserver-utils openssh-server
         echo "xfce4-session" > ~/.xsession
         sudo systemctl enable xrdp
         sudo systemctl restart xrdp
@@ -23,7 +23,7 @@ jobs:
 
     - name: Create User
       run: |
-        sudo useradd -m -s /bin/bash yanzz
+        sudo useradd -m -s /bin/bash yanzz || echo "User yanzz already exists"
         echo "yanzz:${{ secrets.RDP_PASSWORD }}" | sudo chpasswd
         sudo usermod -aG sudo yanzz
         echo "RDP_CREDS=User: yanzz | Password: ${{ secrets.RDP_PASSWORD }}" >> $GITHUB_ENV
@@ -42,19 +42,19 @@ jobs:
       env:
         TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        RDP_PASSWORD: ${{ secrets.RDP_PASSWORD }}
-        TAILSCALE_IP: ${{ env.TAILSCALE_IP }}
       run: |
+        # Multi-line message dengan emoji
         MESSAGE="🔔 Ubuntu SSH Ready
 User: yanzz
-Password: $RDP_PASSWORD
+Password: ${{ secrets.RDP_PASSWORD }}
 Tailscale IP: $TAILSCALE_IP
 Session ID: $GITHUB_RUN_ID"
 
-        ENCODED_MESSAGE=$(python3 -c "import urllib.parse, os; print(urllib.parse.quote(os.environ['MESSAGE']))")
+        # URL encode untuk Telegram
+        ENCODED_MESSAGE=$(python3 -c "import urllib.parse; import os; print(urllib.parse.quote(os.environ['MESSAGE']))")
         curl -s "https://api.telegram.org/bot$TELEGRAM_TOKEN/sendMessage?chat_id=$TELEGRAM_CHAT_ID&text=$ENCODED_MESSAGE&parse_mode=Markdown"
 
-    - name: Keep SSH Alive
+    - name: Keep Alive
       run: |
         echo "SSH Ready via Tailscale IP: $TAILSCALE_IP"
         sleep 18000  # 5 jam
