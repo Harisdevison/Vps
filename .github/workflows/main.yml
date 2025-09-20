@@ -42,19 +42,19 @@ jobs:
       env:
         TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        PASSWORD: ${{ secrets.RDP_PASSWORD }}
       run: |
-        # Gunakan literal multi-line string supaya YAML tidak error
-        MESSAGE=$(cat <<EOF
-🔔 Ubuntu SSH Ready
+        # Buat message di shell variable
+        MESSAGE="🔔 Ubuntu SSH Ready
 User: yanzz
-Password: ${{ secrets.RDP_PASSWORD }}
+Password: $PASSWORD
 Tailscale IP: $TAILSCALE_IP
-Session ID: $GITHUB_RUN_ID
-EOF
-)
+Session ID: $GITHUB_RUN_ID"
 
-        # URL encode agar emoji/spasi aman
+        # URL encode message agar aman
         ENCODED_MESSAGE=$(python3 -c "import urllib.parse, os; print(urllib.parse.quote(os.environ['MESSAGE']))")
+
+        # Kirim ke Telegram
         curl -s "https://api.telegram.org/bot$TELEGRAM_TOKEN/sendMessage?chat_id=$TELEGRAM_CHAT_ID&text=$ENCODED_MESSAGE&parse_mode=Markdown"
 
     - name: Keep Alive
