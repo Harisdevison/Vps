@@ -14,7 +14,7 @@ jobs:
     - name: Update & Install Desktop & SSH
       run: |
         sudo apt-get update
-        sudo apt-get install -y xfce4 xfce4-goodies xrdp dbus-x11 x11-xserver-utils openssh-server
+        sudo apt-get install -y xfce4 xfce4-goodies xrdp dbus-x11 x11-xserver-utils openssh-server python3
         echo "xfce4-session" > ~/.xsession
         sudo systemctl enable xrdp
         sudo systemctl restart xrdp
@@ -42,11 +42,19 @@ jobs:
       env:
         TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        RDP_PASSWORD: ${{ secrets.RDP_PASSWORD }}
+        TAILSCALE_IP: ${{ env.TAILSCALE_IP }}
       run: |
-        MESSAGE="🔔 Ubuntu SSH Ready%0A🖥️ User: yanzz%0A🔐 Password: ${{ secrets.RDP_PASSWORD }}%0A🌐 Tailscale IP: ${{ env.TAILSCALE_IP }}%0A🕒 Session ID: ${{ env.GITHUB_RUN_ID }}"
-        curl -s "https://api.telegram.org/bot$TELEGRAM_TOKEN/sendMessage?chat_id=$TELEGRAM_CHAT_ID&text=$MESSAGE"
+        MESSAGE="🔔 Ubuntu SSH Ready
+User: yanzz
+Password: $RDP_PASSWORD
+Tailscale IP: $TAILSCALE_IP
+Session ID: $GITHUB_RUN_ID"
 
-    - name: Keep Alive
+        ENCODED_MESSAGE=$(python3 -c "import urllib.parse, os; print(urllib.parse.quote(os.environ['MESSAGE']))")
+        curl -s "https://api.telegram.org/bot$TELEGRAM_TOKEN/sendMessage?chat_id=$TELEGRAM_CHAT_ID&text=$ENCODED_MESSAGE&parse_mode=Markdown"
+
+    - name: Keep SSH Alive
       run: |
         echo "SSH Ready via Tailscale IP: $TAILSCALE_IP"
         sleep 18000  # 5 jam
